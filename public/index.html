@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --border: #2a2a2a;
+      --text: #fafafa;
+      --text-muted: #737373;
+      --accent: #fff;
+      --radius: 12px;
+      --transition: 0.2s ease;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    main {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .input-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    input {
+      width: 100%;
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--text-muted);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+    }
+
+    button {
+      padding: 1rem 2rem;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .qr-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .qr-section.hidden {
+      display: none;
+    }
+
+    .qr-wrapper {
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+    }
+
+    #qr-canvas {
+      display: block;
+    }
+
+    .btn-download {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-download:hover {
+      background: var(--border);
+    }
+
+    .error {
+      font-size: 0.8rem;
+      color: #ef4444;
+      text-align: center;
+    }
+
+    .error.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>QR Generator</h1>
+
+    <form class="input-group" id="qr-form">
+      <label for="url">Web link</label>
+      <input
+        type="url"
+        id="url"
+        name="url"
+        placeholder="https://example.com"
+        autocomplete="url"
+        required
+      />
+      <button type="submit" id="generate-btn">Generate</button>
+    </form>
+
+    <p class="error hidden" id="error"></p>
+
+    <section class="qr-section hidden" id="qr-section">
+      <div class="qr-wrapper">
+        <canvas id="qr-canvas"></canvas>
+      </div>
+      <button class="btn-download" id="download-btn">Download PNG</button>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script>
+    const form = document.getElementById('qr-form');
+    const urlInput = document.getElementById('url');
+    const generateBtn = document.getElementById('generate-btn');
+    const qrSection = document.getElementById('qr-section');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const downloadBtn = document.getElementById('download-btn');
+    const errorEl = document.getElementById('error');
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorEl.classList.add('hidden');
+      errorEl.textContent = '';
+    }
+
+    function validateUrl(str) {
+      try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      let url = urlInput.value.trim();
+      if (!url) {
+        showError('Please enter a URL');
+        return;
+      }
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      if (!validateUrl(url)) {
+        showError('Please enter a valid web link');
+        return;
+      }
+
+      generateBtn.disabled = true;
+
+      try {
+        await QRCode.toCanvas(qrCanvas, url, {
+          width: 256,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+
+        qrSection.classList.remove('hidden');
+        downloadBtn.onclick = () => {
+          const link = document.createElement('a');
+          link.download = 'qrcode.png';
+          link.href = qrCanvas.toDataURL('image/png');
+          link.click();
+        };
+      } catch (err) {
+        showError('Failed to generate QR code');
+      } finally {
+        generateBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

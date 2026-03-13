@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "name": "qr-generator",
+  "version": "1.0.0",
+  "description": "Simple web app to generate QR codes from web links",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["qr", "qrcode", "generator", "web"],
+  "author": "shubhambasak",
+  "license": "MIT"
+}
